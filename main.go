@@ -15,7 +15,7 @@ type Operation interface{}
 type HelpOp struct{}
 
 type FilenameOp struct {
-	Name string
+	Name []string
 }
 
 type ListOp struct{}
@@ -46,10 +46,12 @@ func main() {
 			return
 		}
 
-		err = move(cwd, trashPath, v.Name)
-		if err != nil {
-			fmt.Println(err)
-			return
+		for _, fn := range v.Name {
+			err = move(cwd, trashPath, fn)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
 		fmt.Println("Successfully moved item to trash")
 
@@ -95,28 +97,40 @@ func trashDir() (string, error) {
 // move function changes item location from source to destination.
 // Returns error.
 func move(source string, destination string, filename string) error {
-	sourcePath := filepath.Join(source, filename)
-	file, err := os.Open(sourcePath)
+
+	p := filepath.Join(source, filename)
+	file, err := os.Stat(p)
 	if err != nil {
-		return fmt.Errorf("couldn't open '%s' file: %s", sourcePath, err)
+		return err
 	}
 
-	// if destFile exists, keep all of the copies
-	destFile, err := os.Create(filepath.Join(destination, filename))
-	if err != nil {
-		err = file.Close()
-		return fmt.Errorf("couldn't open destination file: %s\n", err)
+	switch mode := file.Mode(); {
+	case mode.IsDir():
+		return fmt.Errorf("The input is a directory. Directory operation doesn't allowed for your safeness.\n")
+	case mode.IsRegular():
+		file, err := os.Open(p)
+		if err != nil {
+			return fmt.Errorf("couldn't open '%s' file: %s", p, err)
+		}
+
+		// if destFile exists, keep all of the copies
+		destFile, err := os.Create(filepath.Join(destination, filename))
+		if err != nil {
+			err = file.Close()
+			return fmt.Errorf("couldn't open destination file: %s\n", err)
+		}
+		defer destFile.Close()
+
+		_, err = io.Copy(destFile, file)
+
+		_ = file.Close()
+		if err != nil {
+			return fmt.Errorf("error in copy operation: %s", err)
+		}
+
+		err = os.Remove(filepath.Join(source, filename))
+		return nil
 	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, file)
-
-	_ = file.Close()
-	if err != nil {
-		return fmt.Errorf("error in copy operation: %s", err)
-	}
-
-	err = os.Remove(filepath.Join(source, filename))
 	return nil
 }
 
@@ -126,10 +140,18 @@ func parseFlags() (Operation, error) {
 		return UnknownOp{}, fmt.Errorf("expects filename argument. check --help or -h\n")
 	}
 
-	if len(flags) > 1 {
-		return UnknownOp{}, fmt.Errorf("expects one argument at a time. check --help or -h\n")
-	}
 
+	// So, all flags must be file name.
+	// Operation flags such as -l do not allowed between filenames.
+	if !strings.HasPrefix(flags[0], "-") {
+		var fnames []string;
+		for _, fn := range flags{
+			if len(fn) > 0 {
+				fnames = append(fnames, fn)
+			}
+		}
+		return FilenameOp{Name: fnames}, nil
+	}
 	var op = flags[0]
 	if op == "-h" || op == "--help" {
 		return HelpOp{}, nil
@@ -137,10 +159,6 @@ func parseFlags() (Operation, error) {
 
 	if op == "-l" || op == "--list" {
 		return ListOp{}, nil
-	}
-
-	if !strings.HasPrefix(op, "-") {
-		return FilenameOp{Name: op}, nil
 	}
 
 	return UnknownOp{}, fmt.Errorf("unknown operation flag\n")
