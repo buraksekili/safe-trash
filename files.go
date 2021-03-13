@@ -39,40 +39,39 @@ func trashDir() (string, error) {
 
 // move function changes item location from source to destination.
 // Returns error.
-func move(source string, destination string, filename string) error {
-
-	p := filepath.Join(source, filename)
-	file, err := os.Stat(p)
+func move(destination string, filename string) error {
+	absPath, err := filepath.Abs(filename)
 	if err != nil {
 		return err
 	}
 
-	switch mode := file.Mode(); {
+	fi, err := os.Stat(absPath)
+	if err != nil {
+		return err
+	}
+
+	switch mode := fi.Mode(); {
 	case mode.IsDir():
 		return fmt.Errorf("The input is a directory. Directory operation doesn't allowed for your safeness.\n")
 	case mode.IsRegular():
-		file, err := os.Open(p)
+		_, fname := filepath.Split(filename)
+		file, err := os.Open(filename)
 		if err != nil {
-			return fmt.Errorf("couldn't open '%s' file: %s", p, err)
+			return fmt.Errorf("couldn't open '%s' file: %s", filename, err)
 		}
+		defer file.Close()
 
-		// if destFile exists, keep all of the copies
-		destFile, err := os.Create(filepath.Join(destination, filename))
+		destFile, err := os.Create(filepath.Join(destination, fname))
 		if err != nil {
-			err = file.Close()
 			return fmt.Errorf("couldn't open destination file: %s\n", err)
 		}
 		defer destFile.Close()
 
 		_, err = io.Copy(destFile, file)
-
-		_ = file.Close()
 		if err != nil {
 			return fmt.Errorf("error in copy operation: %s", err)
 		}
-
-		err = os.Remove(filepath.Join(source, filename))
-		return nil
+		return os.Remove(filename)
 	}
 	return nil
 }

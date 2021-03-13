@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/fatih/color"
+
 	"github.com/buraksekili/selog"
 )
 
@@ -26,18 +28,14 @@ func main() {
 			l.Fatal("couldn't generate trash directory: %v\n", err)
 		}
 
-		cwd, err := os.Getwd()
-		if err != nil {
-			l.Fatal("couldn't get working directory: %v\n", err)
-		}
-
-		for _, fn := range v.Name {
-			err = move(cwd, trashPath, fn)
+		for _, fn := range v.Names {
+			err = move(trashPath, fn)
 			if err != nil {
 				l.Fatal("couldn't change the cwd: %v\n", err)
 			}
+			color.Green("Successfully moved %s to trash", fn)
 		}
-		l.Success("Successfully moved item to trash")
+
 	case ListOp:
 		if err := listCwd(); err != nil {
 			l.Fatal("couldn't list cwd", err)
