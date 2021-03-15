@@ -13,7 +13,7 @@ func main() {
 
 	logger := log.New(os.Stdout, "safe-trash", log.LstdFlags)
 	l := selog.NewLogger(logger)
-
+	
 	op, err := parseFlags()
 	if err != nil {
 		l.Fatal("couldn't parse flag: %v\n", err)

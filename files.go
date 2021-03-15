@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+
 	"path/filepath"
 )
 
@@ -52,28 +53,32 @@ func move(destination string, filename string) error {
 
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
-		return fmt.Errorf("The input is a directory. Directory operation doesn't allowed for your safeness.\n")
+		return fmt.Errorf("directory deletion is not allowed for your safeness. consider using cp")
 	case mode.IsRegular():
-		_, fname := filepath.Split(filename)
-		file, err := os.Open(filename)
-		if err != nil {
-			return fmt.Errorf("couldn't open '%s' file: %s", filename, err)
-		}
-		defer file.Close()
-
-		destFile, err := os.Create(filepath.Join(destination, fname))
-		if err != nil {
-			return fmt.Errorf("couldn't open destination file: %s\n", err)
-		}
-		defer destFile.Close()
-
-		_, err = io.Copy(destFile, file)
-		if err != nil {
-			return fmt.Errorf("error in copy operation: %s", err)
-		}
-		return os.Remove(filename)
+		return moveFile(filename, destination)
 	}
 	return nil
+}
+
+func moveFile(filename, destination string) error {
+	_, fname := filepath.Split(filename)
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("couldn't open '%s' file: %s", filename, err)
+	}
+	defer file.Close()
+
+	destFile, err := os.Create(filepath.Join(destination, fname))
+	if err != nil {
+		return fmt.Errorf("couldn't open destination file: %s", err)
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, file)
+	if err != nil {
+		return fmt.Errorf("error in copy operation: %s", err)
+	}
+	return os.Remove(filename)
 }
 
 func listCwd() error {
